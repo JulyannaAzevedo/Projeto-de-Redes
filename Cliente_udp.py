@@ -1,7 +1,6 @@
 import socket
 import struct
 import random
-import time
 
 # Endereço e porta do servidor
 SERVIDOR_IP = "127.0.0.1"
@@ -46,7 +45,7 @@ def exibir_resposta(resposta):
         if tipo_requisicao == 0: 
             print("Data e Hora Atual:", resposta[7:].decode())
         elif tipo_requisicao == 1: 
-            print("Mensagem Motivacional:", resposta[7:].decode())  # Corrigindo o índice para 7
+            print("Mensagem Motivacional:", resposta[7:].decode())
         elif tipo_requisicao == 2:
             num_respostas = struct.unpack("!B", resposta[6:7])[0]
             print("Quantidade de Respostas:", num_respostas)
@@ -79,9 +78,6 @@ def cliente():
 
             # Exibir a resposta recebida
             exibir_resposta(resposta)
-
-            # Adicionar atraso aleatório
-            time.sleep(random.uniform(0.5, 2.0))
 
 # Chamada da função principal do cliente
 if __name__ == "__main__":
