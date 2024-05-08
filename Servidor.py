@@ -5,7 +5,6 @@ import struct
 SERVER_IP = "127.0.0.1"
 SERVER_PORT = 50000 
 
-
 # Função para tratar as requisições do cliente
 def handle_request(request):
     # Verificar se o tamanho do buffer é suficiente
@@ -23,7 +22,7 @@ def handle_request(request):
     if request_type == 0:  # Data e hora atual
         response = "2024-05-07 15:30:00\n"
     elif request_type == 1:  # Mensagem motivacional
-        response = "Hang in there! You're almost at the end of the semester.\n"
+        response = "Mantenha-se firme! Você está quase no final do semestre.\n"
     elif request_type == 2:  # Quantidade de respostas enviadas pelo servidor
         response = str(10)  # Número fictício de respostas
     

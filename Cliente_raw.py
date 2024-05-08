@@ -2,7 +2,6 @@ import socket
 import struct
 import random
 
-
 # Configurações do servidor
 SERVER_IP = "127.0.0.1"  # Endereço IP do servidor local
 SERVER_PORT = 50000  # Porta do servidor para as conexões dos clientes
@@ -60,25 +59,19 @@ def exibir_resposta(resposta):
         print("Não foi possível receber a resposta do servidor.")
         return
     
-    # Verificar se o tamanho da resposta é suficiente para desempacotar o cabeçalho
-    if len(resposta) < 6:
-        print("Resposta inválida: tamanho insuficiente.")
-        return
-
     # Desempacotar o cabeçalho da resposta
-    req_res, tipo, identificador, tamanho_resposta = struct.unpack("!BBHH", resposta[:6])
+    req_res, tipo, identificador, tamanho_resposta = struct.unpack("!BBHH", resposta[28:6])
+
+    # Exibir tamanho da resposta
+    print("Tamanho da resposta:", tamanho_resposta)
 
     if tamanho_resposta == 0:  # Resposta indicando recebimento de requisição inválida
         print("Requisição inválida.")
     else:
-        # Exibir tamanho da resposta
-        print("Tamanho da resposta:", tamanho_resposta)
-
-        # Exibir a resposta propriamente dita
-        dados_resposta = resposta[6:6 + tamanho_resposta]
-        hex_string = dados_resposta.hex()
-        string = bytearray.fromhex(hex_string).decode('latin1')
-        print("Resposta:", string)
+        # Pular os 20 bytes do cabeçalho IP e os 8 bytes do cabeçalho UDP para chegar ao conteúdo do payload
+        dados_resposta = resposta[28:]
+        resposta_decodificada = dados_resposta.decode('utf-8')  # Decodificar os dados da resposta
+        print("Resposta:", resposta_decodificada)
 
 # Função principal do cliente
 def client():
