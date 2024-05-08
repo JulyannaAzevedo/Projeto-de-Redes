@@ -15,4 +15,4 @@ def executar_arquivos_simultaneamente(arquivo1, arquivo2):
     processo2.wait()
 
 # Chamada da função para executar os arquivos simultaneamente
-executar_arquivos_simultaneamente('Cliente_raw.py', 'Servidor.py')
+executar_arquivos_simultaneamente('Cliente_udp.py', 'Servidor.py')
