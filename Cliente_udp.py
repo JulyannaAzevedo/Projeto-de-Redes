@@ -44,9 +44,9 @@ def exibir_resposta(resposta):
         print("Requisição inválida.")
     elif tipo_resposta == 1:  # Resposta
         if tipo_requisicao == 0: 
-            print("Data e Hora Atual:", resposta[6:].decode())
+            print("Data e Hora Atual:", resposta[7:].decode())
         elif tipo_requisicao == 1: 
-            print("Mensagem Motivacional:", resposta[6:].decode())
+            print("Mensagem Motivacional:", resposta[7:].decode())  # Corrigindo o índice para 7
         elif tipo_requisicao == 2:
             num_respostas = struct.unpack("!B", resposta[6:7])[0]
             print("Quantidade de Respostas:", num_respostas)
@@ -61,7 +61,9 @@ def cliente():
         print("2. Mensagem motivacional para o fim do semestre")
         print("3. Quantidade de respostas enviadas pelo servidor até o momento")
         print("4. Sair")
+
         escolha = input("\nDigite o número da opção desejada: ")
+
         if escolha == "4":
             print("Cliente encerrado...")
             break
