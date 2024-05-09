@@ -1,127 +1,145 @@
-import socket
-import struct
-import random
+import random  # Importa o módulo random para gerar números aleatórios
+import socket  # Importa o módulo socket para comunicação em rede
+import struct  # Importa o módulo struct para empacotamento e desempacotamento de dados binários
 
 # Configurações do servidor
-IP_SERVIDOR = '127.0.0.1'
-PORTA_SERVIDOR = 50000
+ip_servidor = '127.0.0.1'  
+porta_servidor = 50000  
 
 # Configurações do cliente
-IP_CLIENTE = '127.0.0.1'
-PORTA_CLIENTE = 59155
+ip_cliente = '127.0.0.1'  # local para testes
+porta_cliente = 59155  
 
-# mensagem pré-definidos com as escolhas
-DATA_HORA = 0b0001  # 0001 para data e hora
-MENSAGEM_MOTIVACIONAL = 0b0010  # 0010 para mensagem motivacional
-CONTADOR_RESPOSTAS = 0b0011  # 0011 para contador de respostas
-REQUISICAO_INVALIDA = 0b0100  # 0100 para requisição inválida
+# Escolhas possíveis
+tempoData = 0b0001  # Define a opção para obter data e hora atual
+mensagemMotivacional = 0b0010  # Define a opção para receber uma mensagem motivacional
+respostasContagem = 0b0011  # Define a opção para obter a quantidade de respostas do servidor
+requisicaoInvalida = 0b0100  # Define a opção para indicar uma requisição inválida
 
-# Função para construir a mensagem de requisição
-def construir_requisicao(tipo):
-    # msg_type representa o tipo da mensagem
-    msg_type = (0 << 4) | tipo
+def interpretar_resposta(bytes_resposta):
+    """
+    Interpreta a resposta recebida do servidor.
     
-    # `identificador` é um número aleatório de 16 bits para identificar a requisição
-    identificador = random.randint(1, 65535)
+    Args:
+        bytes_resposta (bytes): Os bytes da resposta recebida.
     
-    # A mensagem é empacotada com !BHB (1 byte para msg_type, 2 bytes para identificador, e 1 byte vazio)
-    return struct.pack('!BHB', msg_type, identificador, 0), identificador
-
-
-# Função para calcular o checksum
-def calcular_checksum(source_string):
-    # Adiciona um byte de preenchimento se o comprimento da string de origem for ímpar
-    if len(source_string) % 2 == 1:
-        source_string += b'\0'
+    Returns:
+        str or int: A mensagem interpretada ou a quantidade de respostas.
+    """
+    # Ignora os primeiros 28 bytes (20 do cabeçalho IP e 8 do cabeçalho UDP)
+    bytes_resposta = bytes_resposta[28:]
     
-    # Soma todos os valores de 16 bits extraídos da string
-    sum_result = sum(struct.unpack('!%dH' % (len(source_string) // 2), source_string))
+    # Extrai o tipo de mensagem e o identificador da resposta
+    tipo_mensagem, identificador = struct.unpack('!BH', bytes_resposta[:3])
     
-    # Faz a soma usando apenas os 16 bits menos significativos
-    sum_result = (sum_result & 0xffff) + (sum_result >> 16)
-    
-    # Retorna o complemento de 1 da soma
-    return ~sum_result
-
-
-# Função para construir o cabeçalho UDP
-def construir_cabecalho_udp(orig_porta, dest_porta, dados, ip_origem, ip_destino):
-    # Comprimento total do pacote UDP (8 bytes de cabeçalho + dados)
-    comprimento = 8 + len(dados)
-    
-    # Pseudo-cabeçalho IP usado no cálculo do checksum, com informações IP e de protocolo
-    pseudo_header = struct.pack('!4s4sBBH', socket.inet_aton(ip_origem), socket.inet_aton(ip_destino), 0, socket.IPPROTO_UDP, comprimento)
-    
-    # Cabeçalho UDP sem checksum
-    cabecalho_udp = struct.pack('!HHHH', orig_porta, dest_porta, comprimento, 0)
-    
-    # Calcula o checksum usando o pseudo-cabeçalho, cabeçalho UDP e os dados
-    checksum = calcular_checksum(pseudo_header + cabecalho_udp + dados) & 0xffff
-    
-    # Empacota o cabeçalho UDP com o checksum calculado e adiciona os dados (payload)
-    return struct.pack('!HHHH', orig_porta, dest_porta, comprimento, checksum) + dados
-
-
-# Função para interpretar a resposta
-def interpretar_resposta(resposta_bytes):
-    # Pula os primeiros 28 bytes (20 do cabeçalho IP e 8 do cabeçalho UDP)
-    resposta_bytes = resposta_bytes[28:]
-    
-    # Desempacota os primeiros 3 bytes da resposta para obter `msg_type` e `identificador`
-    msg_type, identificador = struct.unpack('!BH', resposta_bytes[:3]) 
-    
-    # O 4º byte é o tamanho da resposta
-    tamanho_resposta = resposta_bytes[3]
+    # Obtém o tamanho da resposta
+    tamanho_resposta = bytes_resposta[3]
     
     # Extrai o tipo da resposta (4 bits menos significativos)
-    tipo = msg_type & 0x0F
+    tipo_resposta = tipo_mensagem & 0x0F
     
-    # Extrai a parte dos dados da resposta
-    resposta = resposta_bytes[4:4+tamanho_resposta]
+    # Extrai os dados da resposta
+    resposta = bytes_resposta[4:4 + tamanho_resposta]
 
-    # Verifica o tipo da resposta
-    if tipo == REQUISICAO_INVALIDA:
+    # Verifica o tipo de resposta e retorna a mensagem correspondente
+    if tipo_resposta == requisicaoInvalida:
         identificador = 0
         return f"Requisição inválida {identificador}."
-    elif tipo == CONTADOR_RESPOSTAS:
+    elif tipo_resposta == respostasContagem:
         contador_respostas, = struct.unpack('!I', resposta)
         return contador_respostas
     else:
         return resposta.decode('utf-8', errors='ignore')
 
 
+def criar_cabecalho_udp(porta_origem, porta_destino, dados, ip_origem, ip_destino):
+    """
+    Cria o cabeçalho UDP para empacotar os dados a serem enviados.
+    
+    Args:
+        porta_origem (int): A porta de origem do pacote.
+        porta_destino (int): A porta de destino do pacote.
+        dados (bytes): Os dados a serem empacotados.
+        ip_origem (str): O endereço IP de origem.
+        ip_destino (str): O endereço IP de destino.
+    
+    Returns:
+        bytes: O cabeçalho UDP empacotado juntamente com os dados.
+    """
+    comprimento = 8 + len(dados)
+    
+    pseudo_cabecalho = struct.pack('!4s4sBBH', socket.inet_aton(ip_origem), socket.inet_aton(ip_destino), 0, socket.IPPROTO_UDP, comprimento)
+    
+    cabecalho_udp = struct.pack('!HHHH', porta_origem, porta_destino, comprimento, 0)
+    
+    checksum_soma = calcular_checksum(pseudo_cabecalho + cabecalho_udp + dados) & 0xffff
+    
+    return struct.pack('!HHHH', porta_origem, porta_destino, comprimento, checksum_soma) + dados
+
+
+def criar_requisicao(escolha):
+    """
+    Cria uma requisição para enviar ao servidor.
+    
+    Args:
+        escolha (int): A opção escolhida pelo cliente.
+    
+    Returns:
+        tuple: Uma tupla contendo a mensagem da requisição e o identificador.
+    """
+    tipo_mensagem = (0 << 4) | escolha
+    
+    identificador = random.randint(1, 65535)
+    
+    return struct.pack('!BHB', tipo_mensagem, identificador, 0), identificador
+
+
+def calcular_checksum(string_fonte):
+    """
+    Calcula o checksum da string de origem para verificação de integridade dos dados.
+    
+    Args:
+        string_fonte (bytes): A string de origem para calcular o checksum.
+    
+    Returns:
+        int: O checksum calculado.
+    """
+    if len(string_fonte) % 2 == 1:
+        string_fonte += b'\0'
+    
+    checksum_soma = sum(struct.unpack('!%dH' % (len(string_fonte) // 2), string_fonte))
+    
+    checksum_soma = (checksum_soma & 0xffff) + (checksum_soma >> 16)
+    
+    return ~checksum_soma
+
+
+# Montando o socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_RAW, socket.IPPROTO_UDP)
 
 try:
     while True:
-        print("\nMenu de Opções:")
+        print("\n\nMenu de Opções:")
         print("1 - Data e hora atual")
-        print("2 - Mensagem motivacional")
-        print("3 - Quantidade de respostas do servidor")
+        print("2 - Uma mensagem motivacional para o fim do semestre")
+        print("3 - Quantidade de respostas emitidas pelo servidor até o momento")
         print("4 - Sair")
-        opcao = int(input("Escolha uma opção: "))
+        escolha = int(input("Escolha uma opção: "))
 
-        if opcao == 4:
-            print("Saindo...")
+        # Se o usuário escolheu sair
+        if escolha == 4:
             break
 
-        # Constrói a mensagem e o identificador da requisição
-        mensagem, identificador = construir_requisicao(opcao)
+        mensagem, identificador = criar_requisicao(escolha)    
+        pacote_udp = criar_cabecalho_udp(porta_cliente, porta_servidor, mensagem, ip_cliente, ip_servidor)  
+        sock.sendto(pacote_udp, (ip_servidor, porta_servidor))
 
-        # Constrói o pacote UDP com o cabeçalho e os dados
-        pacote_udp = construir_cabecalho_udp(PORTA_CLIENTE, PORTA_SERVIDOR, mensagem, IP_CLIENTE, IP_SERVIDOR)
+        # Resposta servidor 
+        conteudo, _ = sock.recvfrom(255)          
+        resposta = interpretar_resposta(conteudo)
         
-        # Envia o pacote UDP para o servidor
-        sock.sendto(pacote_udp, (IP_SERVIDOR, PORTA_SERVIDOR))
-
-        # Recebe a resposta do servidor
-        data, _ = sock.recvfrom(255)
-        ##print(f"Tamanho dos dados recebidos: {len(data)}")
-
-        # Interpreta a resposta do servidor
-        resposta = interpretar_resposta(data)
-        print(f"Resposta do servidor para o identificador {identificador}: {resposta}")
+        print(f"\n\n{resposta}")
 
 finally:
     sock.close()
-    print('Socket fechado')
+    print('\nCanal de atendimento fechado')
